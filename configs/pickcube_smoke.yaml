@@ -1,0 +1,27 @@
+# PickCube 冒烟评测 —— Phase 1 端到端最小闭环（占位策略，预期成功率 ~0）
+#
+# 目的：验证「构建 env → 顺序 rollout → 成功率统计 → JSONL 落盘」整条链路正确，
+# 而不是追求指标好看。真实策略（ACT）在 Phase 2 接入。
+#
+# Windows 必需配置见 docs/env_decision.md §8：
+#   render_backend: cpu     （默认 gpu 会崩溃）
+#   sim_backend: physx_cpu  （Windows 无 GPU 仿真）
+#   control_mode: 关节空间  （Windows 无 pinocchio，pd_ee_* 需要 IK）
+
+exp_id: smoke_pickcube_zero_policy
+experiments_root: experiments
+
+env:
+  task: PickCube-v1
+  obs_mode: rgb
+  control_mode: pd_joint_delta_pos
+  sim_backend: physx_cpu
+  render_backend: cpu
+
+rollout:
+  seeds: [0, 1, 2]
+  episodes_per_seed: 10
+  max_episode_steps: 150
+
+policy:
+  name: zero

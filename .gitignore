@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 本地 wheel 缓存（CUDA torch 等，体积大，不入库）
+.wheels/
+
+# 实验产物（体积大，不入库；只入库生成它们的代码与配置）
+experiments/
+!experiments/.gitkeep
+*.mp4
+*.h5
+*.hdf5
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+
+# LeRobot / HF 缓存
+.cache/
+hf_cache/
+
+# ManiSkill 资产（默认在 %USERPROFILE%\.maniskill，此处兜底）
+maniskill_data/
+.maniskill/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.log
+
+# 第三方源码（ManiSkill baselines / 文档，体积大，不入库）
+third_party/
+
+# Reasonix 工具会话记录，不入库
+.reasonix/

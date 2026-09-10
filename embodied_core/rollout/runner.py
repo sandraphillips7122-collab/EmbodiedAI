@@ -5,6 +5,7 @@
 - 用**固定 seed 集**跑确定数量的 episode，输出「成功率 ± 标准误 + Wilson 95% 区间」
 - 每个 episode 落一行 JSONL（可追溯到实验记录，见 README 的诚实性约定）
 - 标注失败模式（``success`` / ``timeout`` / ``unknown``；Phase 2 起细分）
+- 可选录制 MP4（只录前 ``num_videos`` 个 episode，避免磁盘被视频占满）
 
 设计取舍：**顺序单环境**。实测 CPU 渲染（``render_backend='cpu'``）吞吐 86–200 step/s，
 100 条 × 150 步 ≈ 2–3 分钟，完全够用；而 Windows 下多进程 spawn 的复杂度与风险更高。
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 import argparse
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -40,10 +41,19 @@ class RolloutConfig:
     max_episode_steps: int = 150
     policy_name: str = "zero"
     experiments_root: str = "experiments"
+    #: 录制 MP4（用 ManiSkill 官方 RecordEpisode，按 episode 为单位输出）
+    record_video: bool = False
+    #: 只录前多少个 episode（0 表示不录）；控制磁盘占用
+    num_videos: int = 2
+    video_fps: int = 30
 
     @property
     def total_episodes(self) -> int:
         return len(self.seeds) * self.episodes_per_seed
+
+    @property
+    def video_dir(self) -> Path:
+        return Path(self.experiments_root) / self.exp_id / "videos"
 
 
 def _episode_seed(seed: int, episode_idx: int) -> int:
@@ -51,10 +61,46 @@ def _episode_seed(seed: int, episode_idx: int) -> int:
     return seed * 100_000 + episode_idx
 
 
+def _wrap_video(env, cfg: RolloutConfig):
+    """在 CPUGymWrapper **之外**再包一层官方 ``RecordEpisode``。
+
+    顺序与 ManiSkill 官方 baseline（``act/make_env.py``）一致：内层 env → CPUGymWrapper →
+    RecordEpisode。只对前 ``num_videos`` 个 episode 触发录制（``save_video_trigger``）。
+    """
+    from mani_skill.utils.wrappers import RecordEpisode
+
+    limit = max(0, int(cfg.num_videos))
+    if limit == 0:
+        return env
+    cfg.video_dir.mkdir(parents=True, exist_ok=True)
+    return RecordEpisode(
+        env,
+        output_dir=str(cfg.video_dir),
+        save_trajectory=False,
+        save_video=True,
+        # ManiSkill 的语义：trigger 的参数是「已流逝的环境步数」，不是 episode 序号
+        # （见 mani_skill/utils/wrappers/record.py 的 save_video_trigger 文档）。
+        # 因此用 num_videos × max_episode_steps 作上限，从而只录前若干个 episode。
+        save_video_trigger=lambda elapsed_steps: (
+            elapsed_steps < limit * max(1, cfg.max_episode_steps)
+        ),
+        info_on_video=True,
+        video_fps=cfg.video_fps,
+        avoid_overwriting_video=True,
+        source_type="embodied_core",
+        source_desc="rollout evaluation",
+    )
+
+
 def run_rollout(cfg: RolloutConfig, policy: Policy | None = None) -> dict[str, Any]:
     """执行一轮评测并把结果写入 ``experiments/<exp_id>/``。"""
     spec = cfg.env
+    if cfg.record_video and spec.render_mode is None:
+        # 官方 RecordEpisode 依赖 env 的 render_mode；仅在录制时开启，避免常规评测多付渲染开销
+        spec = replace(spec, render_mode="rgb_array")
     env = make_env(spec)
+    if cfg.record_video:
+        env = _wrap_video(env, cfg)
     try:
         action_space = env.action_space
         action_dim = int(np.prod(action_space.shape))
@@ -71,6 +117,9 @@ def run_rollout(cfg: RolloutConfig, policy: Policy | None = None) -> dict[str, A
                 "max_episode_steps": cfg.max_episode_steps,
                 "policy": getattr(policy, "name", repr(policy)),
                 "action_dim": action_dim,
+                "record_video": cfg.record_video,
+                "num_videos": cfg.num_videos if cfg.record_video else 0,
+                "video_fps": cfg.video_fps,
             },
         )
 
@@ -128,6 +177,7 @@ def config_from_dict(raw: dict[str, Any]) -> RolloutConfig:
     env_raw = dict(raw.get("env", {}))
     env_spec = EnvSpec(**env_raw)
     rollout_raw = raw.get("rollout", {})
+    video_raw = dict(raw.get("video", {}))
     return RolloutConfig(
         exp_id=raw["exp_id"],
         env=env_spec,
@@ -136,6 +186,9 @@ def config_from_dict(raw: dict[str, Any]) -> RolloutConfig:
         max_episode_steps=int(rollout_raw.get("max_episode_steps", 150)),
         policy_name=raw.get("policy", {}).get("name", "zero"),
         experiments_root=raw.get("experiments_root", "experiments"),
+        record_video=bool(video_raw.get("record_video", False)),
+        num_videos=int(video_raw.get("num_videos", 2)),
+        video_fps=int(video_raw.get("fps", 30)),
     )
 
 
@@ -162,6 +215,8 @@ def main(argv: Sequence[str] | None = None) -> int:
           f"(±{summary['success_rate_se']:.3f} SE, 95% CI {summary['success_rate_ci95']})")
     print(f"[rollout] failure_modes: {summary['failure_modes']}")
     print(f"[rollout] summary -> experiments/{cfg.exp_id}/summary.json")
+    if cfg.record_video:
+        print(f"[rollout] videos -> {cfg.video_dir}")
     return 0
 
 

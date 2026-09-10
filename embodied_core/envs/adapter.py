@@ -43,6 +43,9 @@ class EnvSpec:
     render_backend: str = DEFAULT_RENDER_BACKEND
     max_episode_steps: int | None = None
     reconfiguration_freq: int = 1
+    #: ManiSkill 的 ``render_mode``。录制 MP4（官方 ``RecordEpisode``）时必须为 ``"rgb_array"``；
+    #: 默认 ``None``（不引入额外渲染开销），由 ``RolloutRunner`` 在录制时自动开启。
+    render_mode: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
@@ -74,6 +77,8 @@ class EnvSpec:
         )
         if self.max_episode_steps is not None:
             kwargs["max_episode_steps"] = self.max_episode_steps
+        if self.render_mode is not None:
+            kwargs["render_mode"] = self.render_mode
         kwargs.update(self.extra)
         return kwargs
 
@@ -86,6 +91,7 @@ class EnvSpec:
             render_backend=self.render_backend,
             max_episode_steps=self.max_episode_steps,
             reconfiguration_freq=self.reconfiguration_freq,
+            render_mode=self.render_mode,
             extra=self.extra,
         )
 

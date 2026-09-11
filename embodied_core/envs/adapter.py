@@ -96,15 +96,32 @@ class EnvSpec:
         )
 
 
-def make_env(spec: EnvSpec, *, record_metrics: bool = True, seed: int | None = None):
+def make_env(
+    spec: EnvSpec,
+    *,
+    record_metrics: bool = True,
+    seed: int | None = None,
+    cameras: str = "default",
+):
     """构建**单环境**（``num_envs=1``）的 CPU 评测环境。
 
     单环境 + 顺序 rollout 是本项目在 Windows 上最稳的路径：实测 CPU 渲染
     （``render_backend='cpu'``）吞吐 86–200 step/s，100 条 rollout 只需分钟级，
     远低于多进程 spawn 带来的复杂度与风险。
+
+    Args:
+        cameras: ``"default"`` 用任务自带相机（PickCube 只有 base_camera）；
+            ``"three"`` 换成项目 B 需要的三个视角（camera1/2/3）。**必须与
+            ``scripts/replay_3cam.py`` 生成数据时用的相机配置一致**，
+            否则训练与推理的观测分布不一致。
     """
     import mani_skill  # noqa: F401  导入以触发任务注册
     from mani_skill.utils.wrappers import CPUGymWrapper
+
+    if cameras == "three":
+        from embodied_core.envs.cameras import patch_pickcube_with_three_cameras
+
+        patch_pickcube_with_three_cameras()
 
     spec.validate()
     kwargs = spec.env_kwargs()

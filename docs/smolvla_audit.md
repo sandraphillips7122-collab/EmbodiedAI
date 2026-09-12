@@ -104,6 +104,58 @@
          其余（数据、步数、seed）保持一致，比较成功率。
 ```
 
+### 3.3 该对照实验已尝试执行 —— 结果：**在本机不可行**（诚实记录）
+
+我实际跑了这个对照，过程中暴露两个必须记录的事实。
+
+**(a) 配置陷阱：改字段 ≠ 改行为**
+
+只设 `--policy.freeze_vision_encoder=false` 时，checkpoint 的 `config.json` 里**确实**写着
+`freeze_vision_encoder=False`，看起来"生效了" —— 但训练行为**完全没变**。
+
+根因（`lerobot/policies/smolvla/smolvlm_with_expert.py:157`）：
+
+```python
+if self.train_expert_only:
+    self.vlm.eval()
+    for params in self.vlm.parameters():
+        params.requires_grad = False     # ← 强制冻结整个 VLM，优先级更高
+```
+
+**铁证**：该次训练与 v2（冻结）的 **loss 与 grdn 在 24/24 个数据点上逐位相同**，
+包括末点 `step 20000: loss 0.0460 / grdn 0.959`。
+
+→ **要点**：想解冻视觉编码器，必须**同时**关闭 `train_expert_only`。
+
+**(b) 真正解冻后：算力不可行**
+
+`--policy.freeze_vision_encoder=false --policy.train_expert_only=false`（配置已由日志确认）：
+
+| 配置 | 单步耗时 | 20000 步预估 |
+|---|---|---|
+| frozen（v2，`expert_only=True`） | **1.40 s/step** | 约 3.5 小时 |
+| 无效解冻（`freeze=False, expert_only=True`） | 1.31 s/step | 约 3.5 小时 |
+| **真正解冻（`freeze=False, expert_only=False`）** | **47.72 s/step** | **约 265 小时** ❌ |
+
+**慢 34 倍** —— 因为 `train_expert_only=False` 解冻的是**整个 VLM 主干（448M 参数）**，
+反向传播要穿过 16 层 VLM 与 3×512×512 视觉编码器的全部激活。RTX 4060 Laptop 8 GB 扛不住，
+训练在 step 100 后被终止（无效对照的 checkpoint 保留在
+`experiments/B_unfreeze_finetune_invalid/`，作为该配置陷阱的证据）。
+
+**lerobot 的 API 没有"只解冻视觉编码器、不解冻 LLM"的选项**（`train_expert_only` 是整体开关）。
+若要走这条路，需要改库代码，或改用 LoRA / 更大显存。
+
+**(c) 因此该因素的最终状态（诚实标注）**
+
+| 说法 | 是否成立 |
+|---|---|
+| ✅ "审计表明视觉编码器全程冻结，模型无机制适配自定义相机" | 成立（实测参数量） |
+| ✅ "解冻视觉编码器在本机（8 GB 消费级卡）不可行" | 成立（47.72 s/step 实测） |
+| ❌ "已证明成功率低是因为视觉编码器被冻结" | **仍未验证** —— 对照实验因算力不可行而未完成 |
+
+**可行的替代路径**（未执行）：用 LoRA 只训低秩适配器、换更大显存的卡、
+或修改 lerobot 以单独解冻 vision tower。
+
 **但必须诚实标注**：这条线索目前是**机制上的合理解释**，**尚未经控制变量实验证实**
 （本审计没有做"解冻后重训"的对照）。因此：
 

@@ -154,7 +154,42 @@ cd /d E:\EmbodiedAI
 另：同进程内第二次 `runpy` 会 `context has already been set`（需分进程）；
 连续跑多配置会触发 **TDR**。
 
-### 5. 本轮新增脚本
+### 5. 解冻视觉编码器的对照实验（已尝试 → **在本机不可行**）
+
+**目的**：检验"视觉编码器全程冻结"是否是低成功率的原因（`docs/smolvla_audit.md` §3.3 有完整记录）。
+
+**(a) 配置陷阱：改字段 ≠ 改行为**
+
+只设 `--policy.freeze_vision_encoder=false` 时，checkpoint 的 config 里**确实**写着 `False`，
+但训练行为**完全没变**：
+
+- 根因：`train_expert_only=True` 会执行
+  `for params in self.vlm.parameters(): params.requires_grad = False`
+  （`lerobot/policies/smolvla/smolvlm_with_expert.py:157`）→ **优先级更高**
+- 铁证：该次训练与 v2 的 **loss 与 grdn 在 24/24 个数据点上逐位相同**（末点 `0.0460 / 0.959`）
+- 无效对照的 checkpoint 保存在 `experiments/B_unfreeze_finetune_invalid/`
+
+**(b) 真正解冻后：算力不可行**
+
+| 配置 | 单步耗时 |
+|---|---|
+| frozen（v2，`expert_only=True`） | **1.40 s/step** |
+| 无效解冻（`freeze=False, expert_only=True`） | 1.31 s/step |
+| **真正解冻（`freeze=False, expert_only=False`）** | **47.72 s/step**（**慢 34 倍**） |
+
+→ 20000 步约需 **265 小时**，训练在 step 100 后终止。
+
+**(c) 结论（诚实标注）**
+
+| 说法 | 成立？ |
+|---|---|
+| "视觉编码器全程冻结，模型无机制适配自定义相机" | ✅ 成立（实测参数量） |
+| "解冻视觉编码器在 8 GB 消费级卡上不可行" | ✅ 成立（47.72 s/step 实测） |
+| "已证明成功率低是因为视觉编码器被冻结" | ❌ **仍未验证**（对照因算力受限未完成） |
+
+**替代路径**（未执行）：LoRA 只训低秩适配器、换更大显存、或改 lerobot 单独解冻 vision tower。
+
+### 6. 本轮新增脚本
 
 | 脚本 | 用途 |
 |---|---|

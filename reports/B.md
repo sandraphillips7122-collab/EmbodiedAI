@@ -113,9 +113,20 @@ v1 与 v2 两版的可训练集合**完全相同**（冻结策略由 config 决�
 - ✅ 可以说的：审计表明视觉编码器全程冻结，模型无机制适配自定义相机 —— 这是分布不匹配假设的**具体机制**
 - ❌ **不能**说的："已证明成功率低是因为视觉编码器被冻结" —— 本审计**没有**做"解冻视觉编码器后重训"的对照实验
 
-**可检验该机制的最小实验**（尚未执行，明确记为待办）：
-固定数据与步数，仅把 `freeze_vision_encoder` 改为 `False`（解冻视觉编码器）重训一次，比较成功率；
-若显著提升，则"视觉编码器冻结"被确立为**已证明**因素之一。
+**可检验该机制的最小实验 —— 已尝试执行，结论：在本机不可行**
+
+1. **配置陷阱**：只设 `--policy.freeze_vision_encoder=false` **不生效** ——
+   因为 `train_expert_only=True` 会强制把整个 VLM 的 `requires_grad` 置为 False
+   （`lerobot/policies/smolvla/smolvlm_with_expert.py:157`），**优先级更高**。
+   证据：该次训练与 v2 的 **loss 与 grdn 在 24/24 个数据点上逐位相同**。
+2. **真正解冻后算力不可行**：`freeze_vision_encoder=False` + `train_expert_only=False` 时，
+   单步耗时 **47.72 s/step**（vs 冻结版 1.40 s/step，**慢 34 倍**）→ 20000 步需 **约 265 小时**，
+   训练在 step 100 后终止。
+3. **因此**"视觉编码器冻结导致低成功率"**仍未经验证** —— 这是**算力受限而未完成的验证**，
+   而不是"已证明无关"。
+
+详细记录见 [`docs/smolvla_audit.md`](../docs/smolvla_audit.md) §3.3
+（含无效对照的存放位置 `experiments/B_unfreeze_finetune_invalid/`）。
 
 ### 5.2 控制变量实验：开环执行过长**不是**主因（已排除）
 

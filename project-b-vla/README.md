@@ -81,6 +81,7 @@ cd /d E:\EmbodiedAI
 5. **3 相机必须在数据生成与评测两侧一致** → 配置集中在 `envs/cameras.py`；评测用 `make_env(spec, cameras="three")`。
 6. **模型输出需反归一化**（否则动作越界）→ 用官方 `make_pre_post_processors(cfg, pretrained_path=ckpt)`。
 7. **长时渲染 + GPU 推理会触发 Windows TDR**（`vk::ErrorDeviceLost` ← `nvlddmkm` ID 153）→ 评测循环必须带 `sync_and_free=True` 与 `rebuild_env_every`；**手写循环同样要带**；为每个指令变体重建模型实例也会触发，应复用同一实例。
+8. **`--policy.freeze_vision_encoder=false` 单独设置是无效的** —— 默认的 `train_expert_only=True` 会强制把整个 VLM 的 `requires_grad` 置为 False（`lerobot/policies/smolvla/smolvlm_with_expert.py:157`），**优先级更高**。要真正解冻必须**两个都设 false**；但那样单步耗时从 **1.40 s → 47.72 s（慢 34 倍）**，20000 步需约 **265 小时**，在 8 GB 消费级卡上不可行。详见 [`docs/smolvla_audit.md`](../docs/smolvla_audit.md) §3.3。
 
 ## 关键参考
 

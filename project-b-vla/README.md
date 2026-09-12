@@ -9,8 +9,8 @@
 
 | 指标 | 值 |
 |---|---|
-| **MVP 成功率（v2：500 eps / 20000 steps）** | **1/60 = 0.0167**（±0.0165，Wilson 95% CI [0.003, 0.089]） |
-| MVP 成功率（v1：100 eps / 5000 steps） | 1/30 = 0.0333 |
+| **主结果成功率（v2：500 eps / 20000 steps）** | **1/60 = 0.0167**（±0.0165，Wilson 95% CI [0.003, 0.089]） |
+| 主结果成功率（v1：100 eps / 5000 steps） | 1/30 = 0.0333 |
 | **真正 VLA forward 延迟** | **≈ 433 ms**（p50 393 / p95 620，n=12）—— 含 10 步 flow-matching 去噪 |
 | 纯 action queue 出队 | ≈ 2.42 ms |
 | **闭环平均 step latency** | **≈ 25.5 ms（≈39 Hz）**；**每 50 步含一次 ≈0.43 s 的 forward 尖峰**（详见 [`docs/latency_report.md`](../docs/latency_report.md)） |

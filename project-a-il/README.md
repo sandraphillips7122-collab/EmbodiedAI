@@ -1,7 +1,7 @@
 # 项目 A · 机器人操作模仿学习闭环（ManiSkill3 + ACT）
 
 **目标**：证明「数据工程 → 策略训练 → 严谨评测 → 泛化/失败归因」这条闭环能力。
-主结果见 [`reports/A_mvp.md`](../reports/A_mvp.md)。
+主结果见 [`reports/A.md`](../reports/A.md)。
 
 - 任务：`PickCube-v1`（抓取并移动方块）
 - 策略：ACT（官方 baseline 的 resnet18 + DETRVAE 结构）
@@ -67,7 +67,7 @@ python -c "import json,shutil,pathlib; p=pathlib.Path.home()/'.maniskill/demos/P
 
 产物：`third_party/ManiSkill-main/examples/baselines/act/runs/act-pickcube-rgb-100demos/checkpoints/*.pt`
 
-### 3. MVP 评测（150 次 rollout + MP4，约 5 分钟）
+### 3. 主评测（150 次 rollout + MP4，约 5 分钟）
 
 ```cmd
 .venv\Scripts\python.exe -c "from embodied_core.rollout.runner import RolloutConfig, run_rollout; from embodied_core.envs.adapter import EnvSpec; from embodied_core.rollout.act_policy import ActPolicy; p = ActPolicy('third_party/ManiSkill-main/examples/baselines/act/runs/act-pickcube-rgb-100demos/checkpoints/25000.pt', device='cuda', max_timesteps=200); cfg = RolloutConfig(exp_id='A_mvp_pickcube_act', env=EnvSpec(max_episode_steps=150), seeds=(0,1,2), episodes_per_seed=50, max_episode_steps=150, policy_name='act', record_video=True, num_videos=3); s = run_rollout(cfg, policy=p); print(s['num_successes'],'/',s['num_episodes'], s['success_rate'], s['failure_modes'])"
@@ -77,11 +77,11 @@ python -c "import json,shutil,pathlib; p=pathlib.Path.home()/'.maniskill/demos/P
 
 > ⚠️ `EnvSpec(max_episode_steps=150)` 是**必须的**：只设 `RolloutConfig.max_episode_steps`
 > 只限制循环，env 内部仍是 PickCube 默认的 50 步，会把 77 步长的示教动作截断
-> （实测成功率 0.1 → 0.6）。详见 `reports/A_mvp.md` §4。
+> （实测成功率 0.1 → 0.6）。详见 `reports/A.md` §4。
 
 ### 4. 泛化实验（4 变体 × 30 episodes）
 
-见 `reports/A_mvp.md` §5 的表；变体通过
+见 `reports/A.md` §5 的表；变体通过
 `env.unwrapped.cube_spawn_half_size`（位姿范围）与
 `env.unwrapped.scene.set_ambient_light(...)`（光照）两个接口实现。
 
@@ -151,5 +151,5 @@ scripts/
   inspect_demos.py       数据卡生成
   probe_act.py           动作探针（区分「策略没学会」与「推理有 bug」）
 configs/                 实验配置
-reports/A_mvp.md         结果与归因
+reports/A.md         结果与归因
 ```

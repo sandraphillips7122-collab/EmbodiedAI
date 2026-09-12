@@ -17,7 +17,7 @@
 | 微调 v1 | ✅ | 5000 steps，loss 1.714(100) → 0.273(900)，~1.2 s/step，显存 3.57 GB |
 | **微调 v2** | ✅ | **20000 steps**（3:29:19），`--num_workers 8`，0.62 s/step，显存 3.57 GB；8 个 checkpoint（2500…20000） |
 | 策略适配器 | ✅ | `smolvla_policy.py`；**必须用官方 `make_pre_post_processors` 反归一化**（手写会越界到 2.78） |
-| MVP 评测 v1 / v2 | ✅ | v1 **1/30 = 0.0333**；v2 **1/60 = 0.0167** —— **加大投入没有改善**（见 `reports/B.md` §5 归因） |
+| 主评测 v1 / v2 | ✅ | v1 **1/30 = 0.0333**；v2 **1/60 = 0.0167** —— **加大投入没有改善**（见 `reports/B.md` §5 归因） |
 | 指令泛化四档 | ✅ | 模板 0/12、同义 0/9、组合 0/6、干扰 0/6（基线为 0，负结果） |
 | 场景泛化 | ✅ | baseline 0/5 |
 | 推理效率 | ✅ | **mean 6.7 ms / p95 7.3 ms（≈149 Hz）** → 推理不是瓶颈，渲染才是（37 ms/步） |
@@ -46,6 +46,29 @@
     ```
     注意 `train_act_windows.py` 里出现的 `embodied_core` **只在注释里**，它并不 import 该包，所以不需要改。
 12. **验证方法**：改完后用 `probe_act.py --help` 验证（它在**模块顶层**导入 `embodied_core`，最能暴露该问题）；只测 `demo_gradio.py --help` 不够，因为它是延迟导入。
+
+## ⚠️ 已知的数据缺口（如实记录，不影响既有结论）
+
+**3 相机 1000 条的中间产物 h5 已丢失**
+
+- 原文件名：`~/.maniskill/demos/PickCube-v1/motionplanning/trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5`（5.05 GB）
+- **原因**：`scripts/replay_dual_cube.py` 的早期版本**无条件 rename** 了同目录下的这个同名文件
+  （把它改成了 `trajectory.dualred.rgb...h5`），第二次 replay 又把它覆盖。
+  **该 bug 已修复**：现在只在「本次 replay 确实改写了该文件（mtime 变化）」时才重命名，
+  且目标已存在时**直接报错拒绝覆盖**。
+- **影响范围**：**只是中间产物**。下游全部完好 ——
+  - LeRobotDataset `pickcube_3cam_500img`（11 GB，v2 训练输入）✅
+  - v1 / v2 / langcond 的 checkpoint ✅
+  - 语言条件的 `dualred` / `dualblue` h5 ✅
+  - 3 相机的 **100 条备份**（`trajectory.rgb.3cam100...h5`，502 MB）✅
+- **恢复方式**（约 1.7 小时，可从 1000 条示教重建）：
+
+```cmd
+.venv\Scripts\python.exe scripts\replay_3cam.py --traj-path "%USERPROFILE%\.maniskill\demos\PickCube-v1\motionplanning\trajectory.h5" --use-first-env-state -c pd_joint_delta_pos -o rgb --save-traj -b physx_cpu --num-envs 1 --count 1000
+```
+
+> 该缺口**不影响任何已汇报的数字**：v2 的训练输入是下游的 LeRobotDataset（完好），
+> 而 22 个历史实验的 `episodes.jsonl` 全部保留（独立复算通过）。
 
 ## 复现入口（v2，当前有效）
 

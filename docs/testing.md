@@ -86,4 +86,4 @@
 
 - `pyproject.toml` — `[tool.pytest.ini_options]`：`pythonpath=["."]`、`testpaths`、`slow` marker 声明
 - `tests/conftest.py` — `--runslow` 开关 + sys.path 双保险
-- `reports/A_mvp.md` / `reports/B.md` — 被验证的那些结论的完整上下文
+- `reports/A.md` / `reports/B.md` — 被验证的那些结论的完整上下文

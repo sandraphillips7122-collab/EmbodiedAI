@@ -45,11 +45,13 @@
 
 - 本测试用**随机张量**测显存上限；真实训练的数据加载不进显存，结论可迁移。
 - 未启用 gradient checkpointing，也未做混合精度调参（当前配置已够用）。
-- **尚未接入真实 LeRobotDataset**（Kep 的数据管道 `DatasetPipe` 是下一步）：需要把 ManiSkill replay 的
-  `.h5` 转成 LeRobotDataset，并处理相机数量（我们只有 1 个相机，SmolVLA 期望 3 个）与语言指令字段。
-- 相机数量差异是一个**已知待解决问题**：SmolVLA 的 `image_features` 定义了 `camera1/2/3`，
-  而 PickCube 只有 `base_camera`。可行做法：给任务加 2 个额外视角相机（ManiSkill 支持多相机配置），
-  或按官方做法复制/填充缺失相机并在文档中明确说明。
+- **已接入真实 LeRobotDataset**（后续已完成）：`embodied_core/data/pipeline.py` 把 ManiSkill replay 的
+  `.h5` 转成 LeRobotDataset（3 相机 + 29 维 state + 8 维 action + **语言指令**）。
+  实测规模：100 eps → 166 MB；500 eps（图片模式）→ 11 GB。
+- **相机数量差异已解决**：SmolVLA 的 `image_features` 要求 `camera1/2/3`，而 PickCube 只有 `base_camera`。
+  做法是给任务加 **3 个真实视角**（`embodied_core/envs/cameras.py`，数据生成与评测两侧共用），
+  并用 `scripts/replay_3cam.py` 重新生成数据 —— 实测 1000/1000 replay 成功（5.05 GB）。
+  **注意**：`_default_sensor_configs` 是 **property**，必须用 `property(...)` 覆盖。
 
 ## 5. 复现
 

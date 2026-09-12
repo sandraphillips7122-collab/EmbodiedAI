@@ -198,19 +198,33 @@ def main(argv: list[str] | None = None) -> int:
             "--count",
             str(args.count),
         ]
+        _replay_prod = demo_dir / f"trajectory.rgb.{args.control_mode}.{args.sim_backend}.h5"
+        mtime_before = _replay_prod.stat().st_mtime if _replay_prod.is_file() else 0.0
+
         runpy.run_module("mani_skill.trajectory.replay_trajectory", run_name="__main__")
 
-        # 官方产物名固定 -> 改名以免被下一轮覆盖
+        # 官方产物名固定 -> 改名以免被下一轮覆盖。
+        # ⚠️ 曾经因为**无条件** rename 而误伤同目录下的既有文件：
+        #    它把 PickCube 的 `trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5`
+        #    （3 相机 1000 条，5.05 GB）rename 成了 dual 产物，第二次 replay 又覆盖了它。
+        #    因此这里加两道保护：
+        #      1) 只有本次 replay 真的改写了该文件（mtime 变化）才重命名
+        #      2) 目标已存在时**报错**而不是覆盖
         default_out = demo_dir / f"trajectory.rgb.{args.control_mode}.{args.sim_backend}.h5"
         target_out = demo_dir / f"trajectory.dual{color}.rgb.{args.control_mode}.{args.sim_backend}.h5"
-        if default_out.is_file():
-            if target_out.exists():
-                target_out.unlink()
+        if not default_out.is_file():
+            print(f"[warn] 未找到官方产物 {default_out}")
+        elif default_out.stat().st_mtime <= mtime_before:
+            print(f"[warn] {default_out.name} 未被本次 replay 改写，跳过重命名（避免误伤既有数据）")
+        elif target_out.exists():
+            raise SystemExit(
+                f"[error] 目标已存在，拒绝覆盖：{target_out}\n"
+                f"        如确需重跑，请先手动移走该文件。"
+            )
+        else:
             default_out.rename(target_out)
             produced.append(target_out)
             print(f"[rename] {default_out.name} -> {target_out.name}")
-        else:
-            print(f"[warn] 未找到官方产物 {default_out}")
 
     # 恢复原始 json，避免污染后续（如原 PickCube 的 3 相机 replay）
     traj_json.write_text(json.dumps(original, indent=2), encoding="utf-8")

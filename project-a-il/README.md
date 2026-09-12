@@ -81,9 +81,62 @@ python -c "import json,shutil,pathlib; p=pathlib.Path.home()/'.maniskill/demos/P
 
 ### 4. 泛化实验（4 变体 × 30 episodes）
 
-见 `reports/A_mvp.md` §3 的表；变体通过
+见 `reports/A_mvp.md` §5 的表；变体通过
 `env.unwrapped.cube_spawn_half_size`（位姿范围）与
 `env.unwrapped.scene.set_ambient_light(...)`（光照）两个接口实现。
+
+```cmd
+:: 以「光照变暗」为例（其余变体同理，仅改扰动函数）
+.venv\Scripts\python.exe -c "from embodied_core.rollout.runner import RolloutConfig, run_rollout; from embodied_core.envs.adapter import EnvSpec; from embodied_core.rollout.act_policy import ActPolicy; p=ActPolicy('third_party/ManiSkill-main/examples/baselines/act/runs/act-pickcube-rgb-100demos/checkpoints/25000.pt', device='cuda', max_timesteps=200); cfg=RolloutConfig(exp_id='A_gen_dark', env=EnvSpec(max_episode_steps=150), seeds=(10,11,12), episodes_per_seed=10, max_episode_steps=150, policy_name='act', cameras='default', sync_and_free=True, rebuild_env_every=5); print(run_rollout(cfg, policy=p)['success_rate'])"
+```
+
+### 5. 第二任务 StackCube-v1（验证管道可移植性）
+
+**唯一改动**：`EnvSpec(task="StackCube-v1", max_episode_steps=200)`。
+
+```cmd
+:: 5a. 下载 + 解压 StackCube 示教，并补 render_backend=cpu（同 1b/1c）
+curl -L -o "%TEMP%\StackCube-v1.zip" "https://hf-mirror.com/datasets/haosulab/ManiSkill_Demonstrations/resolve/main/demos/StackCube-v1.zip?download=true"
+
+:: 5b. 1 相机 replay 100 条（约 8 分钟 → 366 MB）
+.venv\Scripts\python.exe -m mani_skill.trajectory.replay_trajectory --traj-path "%USERPROFILE%\.maniskill\demos\StackCube-v1\motionplanning\trajectory.h5" --use-first-env-state -c pd_joint_delta_pos -o rgb --save-traj -b physx_cpu --num-envs 1 --count 100
+
+:: 5c. 训练（100 demos，30000 iters，约 1 小时）
+.venv\Scripts\python.exe scripts\train_act_windows.py --env-id StackCube-v1 --demo-path "%USERPROFILE%\.maniskill\demos\StackCube-v1\motionplanning\trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5" --num-demos 100 --total-iters 30000 --batch-size 32 --no-include-depth --num-eval-episodes 2 --num-eval-envs 1 --eval-freq 100000 --log-freq 500 --save-freq 5000 --no-capture-video --max-episode-steps 200 --exp-name act-stackcube-rgb-100demos --sim-backend physx_cpu
+
+:: 5d. 评测（把上面的 ActPolicy 路径换成 act-stackcube-rgb-100demos/checkpoints/25000.pt，EnvSpec(task='StackCube-v1', max_episode_steps=200)）
+```
+
+结果：**13/30 = 0.4333**（95% CI [0.274, 0.608]），记录在 `experiments/A_stackcube_act/`。
+
+### 6. 数据量曲线（50 / 100 / 200 demos）
+
+同口径对照（同一份数据、同一批超参、**同一 checkpoint 步数**，各 30 episodes）：
+
+```cmd
+:: 训练（把 N 换成 50 / 100 / 200）
+.venv\Scripts\python.exe scripts\train_act_windows.py --env-id PickCube-v1 --demo-path "%USERPROFILE%\.maniskill\demos\PickCube-v1\motionplanning\trajectory.rgb.1cam.pd_joint_delta_pos.physx_cpu.h5" --num-demos N --total-iters 15000 --batch-size 32 --no-include-depth --num-eval-episodes 2 --num-eval-envs 1 --eval-freq 100000 --log-freq 1000 --save-freq 5000 --no-capture-video --max-episode-steps 150 --exp-name act-pickcube-1cam-Ndemos --sim-backend physx_cpu
+```
+
+| 示教条数 | 成功率 |
+|---|---|
+| 50 | 3/30 = **0.1000** |
+| 100 | 4/30 = **0.1333** |
+| 200 | 21/30 = **0.7000** |
+
+> ⚠️ **注意 checkpoint 排序**：`sorted(glob("*.pt"))` 是**字符串排序**，`'10000.pt' > '5000.pt' > '0.pt'` 并不成立 ——
+> `[-1]` 取到的是 `5000.pt`。本表的三个点都是 `5000.pt`，口径一致因此可比；
+> 若要取最新一步，请按 **int(stem)** 排序。
+
+### 7. 细粒度失败归因
+
+```cmd
+:: 在评测循环里收集信号（is_grasped / 末端位置 / 最终到目标距离），再调用分类器
+:: 模块：embodied_core/metrics/failure_modes.py（阈值见文件头部常量）
+```
+
+20 episodes 的实测分布：`success 3 / slip 12 / not_reached 4 / collision 1`，
+即**主导失败模式是"抓起来后滑落"**，记录在 `experiments/A_failure_modes.json`。
 
 ## 代码结构
 

@@ -48,11 +48,19 @@ def build_state(obs_group: h5py.Group) -> np.ndarray:
     return np.concatenate(parts, axis=1)
 
 
-def build_features(state_dim: int, action_dim: int) -> dict[str, dict[str, Any]]:
+def build_features(
+    state_dim: int, action_dim: int, use_videos: bool = True
+) -> dict[str, dict[str, Any]]:
+    """构造 LeRobotDataset 的 features 定义。
+
+    注意 ``dtype`` 必须与 ``LeRobotDataset.create(use_videos=...)`` 一致，
+    否则 lerobot 会直接报错（``use_videos is set to False`` 时不能声明 ``dtype="video"``）。
+    """
+    image_dtype = "video" if use_videos else "image"
     features: dict[str, dict[str, Any]] = {}
     for cam in CAMERAS:
         features[f"observation.images.{cam}"] = {
-            "dtype": "video",
+            "dtype": image_dtype,
             "shape": (256, 256, 3),
             "names": ["height", "width", "channels"],
         }
@@ -83,7 +91,7 @@ def convert(
         first = fh[traj_names[0]]
         state0 = build_state(first["obs"])
         action_dim = int(np.asarray(first["actions"]).shape[-1])
-        features = build_features(state0.shape[-1], action_dim)
+        features = build_features(state0.shape[-1], action_dim, use_videos)
 
         dataset = LeRobotDataset.create(
             repo_id=repo_id,

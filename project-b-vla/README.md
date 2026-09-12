@@ -16,6 +16,8 @@
 | **闭环平均 step latency** | **≈ 25.5 ms（≈39 Hz）**；**每 50 步含一次 ≈0.43 s 的 forward 尖峰**（详见 [`docs/latency_report.md`](../docs/latency_report.md)） |
 | `n_action_steps` 控制变量（1/5/10/25/50） | **全部 0 成功**（110 episodes）→ "开环执行过长" **已排除**（`reports/B.md` §5.2） |
 | **语言条件性 2×2 析因** | 四格均为 **1/30 = 0.0333**（正确 vs 错误指令差 **0.0000**）→ **地板效应，无法检测**（`reports/B.md` §7） |
+| **视觉 LoRA**（最后一轮尝试） | **未获得结果**：配置层面可行（精确插入 49 个视觉模块、可训 1.39M = **0.309%**、**实测 adapter 确实更新**、峰值显存 **908 MiB**），但训练吞吐 **135–225 s/step**（v2 为 1.40 s），无法在合理预算内完成 → 见 `reports/B.md` §5.3 |
+| **官方默认 LoRA 的 target** | **不含任何视觉模块**（只有 `lm_expert.*.{q,v}_proj` + 5 个投影层）→ 因此**无法**验证"视觉域适配不足" |
 | 指令泛化四档（模板/同义/组合/干扰） | 0/12、0/9、0/6、0/6 → **0.0000** |
 | 场景泛化 baseline | 0/5 → 0.0000 |
 | 训练显存 | **3.57 GB**（batch 8） |
@@ -32,7 +34,14 @@
 
 **剩余解释（⚠️ 属假设，未经对照实验证明）**：
 **「预训练分布不匹配」+「视觉编码器全程冻结」** ——
-后者是前者的具体机制（模型没有机制适配自定义相机），但**尚需"解冻视觉编码器后重训"的对照实验**才能确立。
+后者是前者的具体机制（模型没有机制适配自定义相机）。
+
+**该假设的检验进展**（诚实记录）：
+
+- 尝试过 `train_expert_only=False` 的**全量 VLM 解冻** → 单步耗时 **47.72 s**（慢 34 倍），
+  20000 步需约 265 小时 → **在当前硬件上成本不可接受**（`reports/B.md` §5.1、`docs/smolvla_audit.md` §3.3）
+- ⚠️ **但"单独解冻 vision tower"这个条件从未被测到** —— 当前 LeRobot 配置不提供该选项
+- 因此改用 **LoRA** 做参数高效的视觉适配尝试（见 §5.3），这才是本轮针对该假设的有效检验
 
 ## 已完成 ✅
 
@@ -81,7 +90,7 @@ cd /d E:\EmbodiedAI
 5. **3 相机必须在数据生成与评测两侧一致** → 配置集中在 `envs/cameras.py`；评测用 `make_env(spec, cameras="three")`。
 6. **模型输出需反归一化**（否则动作越界）→ 用官方 `make_pre_post_processors(cfg, pretrained_path=ckpt)`。
 7. **长时渲染 + GPU 推理会触发 Windows TDR**（`vk::ErrorDeviceLost` ← `nvlddmkm` ID 153）→ 评测循环必须带 `sync_and_free=True` 与 `rebuild_env_every`；**手写循环同样要带**；为每个指令变体重建模型实例也会触发，应复用同一实例。
-8. **`--policy.freeze_vision_encoder=false` 单独设置是无效的** —— 默认的 `train_expert_only=True` 会强制把整个 VLM 的 `requires_grad` 置为 False（`lerobot/policies/smolvla/smolvlm_with_expert.py:157`），**优先级更高**。要真正解冻必须**两个都设 false**；但那样单步耗时从 **1.40 s → 47.72 s（慢 34 倍）**，20000 步需约 **265 小时**，在 8 GB 消费级卡上不可行。详见 [`docs/smolvla_audit.md`](../docs/smolvla_audit.md) §3.3。
+8. **`--policy.freeze_vision_encoder=false` 单独设置是无效的** —— 默认的 `train_expert_only=True` 会强制把整个 VLM 的 `requires_grad` 置为 False（`lerobot/policies/smolvla/smolvlm_with_expert.py:157`），**优先级更高**。要真正解冻必须**两个都设 false**；但那样解冻的是**整个 VLM 主干（448M 参数）**，单步耗时从 **1.40 s → 47.72 s（慢 34 倍）**，20000 步需约 **265 小时** → **「全量 VLM 解冻在 8 GB 消费级卡上成本不可接受」**。⚠️ **措辞边界**：当前配置**没有"只解冻 vision tower"的选项**，因此**不能**说"已证明单独解冻 vision encoder 不可行"—— 那个条件**从未被测试**。详见 [`docs/smolvla_audit.md`](../docs/smolvla_audit.md) §3.3。
 
 ## 关键参考
 

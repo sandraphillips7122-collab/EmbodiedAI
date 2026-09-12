@@ -11,8 +11,16 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 
 import numpy as np
+
+# 允许从任意工作目录运行：Python 只把「脚本所在目录」加入 sys.path，
+# 因此在仓库根执行 `python scripts/probe_act.py` 时会找不到 embodied_core 包。
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from embodied_core.envs.adapter import EnvSpec, make_env
 from embodied_core.rollout.act_policy import ActPolicy

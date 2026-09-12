@@ -36,6 +36,15 @@
 8. **视频编码在消费级卡上不实用**：500 条 episode 的视频会压进极少的大 mp4（单文件 209 MB+），数小时仍未 finalize → 改用图片模式（40 分钟）。
 9. **长时渲染 + GPU 推理会触发 Windows TDR**（`nvlddmkm` ID 153）→ 评测循环必须 `sync_and_free` + `rebuild_env_every`；**手写循环也要带**；为每个指令变体重建模型实例也会触发，应复用同一实例。
 10. **工具门禁**：本会话中 `edit`/`write` 之后，含模块路径的 shell 命令会被拦；可用 heredoc（`python - <<'PYEOF'`）规避。
+11. **`python scripts\xxx.py` 报 `ModuleNotFoundError: No module named 'embodied_core'`** —— Python 只把**脚本所在目录**（`scripts/`）加入 `sys.path`，而不是当前工作目录；本仓库当时也没有 `pyproject.toml`（`embodied_core` 不是可安装包）。
+    **解决**：受影响的脚本（`demo_gradio.py` / `probe_act.py` / `smoke_video.py`）在 import `embodied_core` **之前**统一加一段兜底：
+    ```python
+    REPO_ROOT = Path(__file__).resolve().parents[1]
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    ```
+    注意 `train_act_windows.py` 里出现的 `embodied_core` **只在注释里**，它并不 import 该包，所以不需要改。
+12. **验证方法**：改完后用 `probe_act.py --help` 验证（它在**模块顶层**导入 `embodied_core`，最能暴露该问题）；只测 `demo_gradio.py --help` 不够，因为它是延迟导入。
 
 ## 复现入口（v2，当前有效）
 

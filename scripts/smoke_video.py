@@ -13,6 +13,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+from pathlib import Path
+
+# 允许从任意工作目录运行：Python 只把「脚本所在目录」加入 sys.path，
+# 因此在仓库根执行 `python scripts/smoke_video.py` 时会找不到 embodied_core 包。
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from embodied_core.envs.adapter import EnvSpec
 from embodied_core.rollout.runner import RolloutConfig, run_rollout

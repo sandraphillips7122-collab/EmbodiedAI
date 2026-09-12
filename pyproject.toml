@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "embodied-core"
+version = "0.1.0"
+description = "两个项目共享的具身智能基础设施：ManiSkill env 适配、统一评测器、数据管道、指标记录"
+requires-python = ">=3.10"
+# 刻意不声明 dependencies：本仓库的依赖（mani_skill / sapien / torch / lerobot）
+# 在 Windows 上安装方式特殊（见 docs/env_decision.md），由 README 手动步骤管理，
+# 避免 `pip install -e .` 把 torch 之类的重依赖从错误源拉下来。
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["embodied_core*"]
+
+[tool.pytest.ini_options]
+# 关键：让 pytest 在任意工作目录下都能 import embodied_core。
+# （`python scripts/xxx.py` 的同类问题由各脚本内的 sys.path 兜底解决）
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: 需要仿真器/GPU 的端到端测试，默认跳过；用 --runslow 启用",
+]

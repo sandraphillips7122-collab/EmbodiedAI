@@ -9,7 +9,8 @@
 |---|---|---|
 | 依赖安装 | ✅ | `lerobot 0.6.1` + `[smolvla]` + `[dataset]`；**torch 未被改动**（仍 `2.9.1+cu128`） |
 | 权重 | ✅ | `lerobot/smolvla_base` 已缓存（走 `hf-mirror.com`） |
-| S2 显存验证 | ✅ | 450M 参数（可训 99.9M）、加载 883 MiB、**batch=8 峰值 3654 MiB** → 8 GB 足够，降级阶梯未启用 |
+| S2 显存验证 | ✅ | 450M 参数、加载 883 MiB、**batch=8 峰值 3654 MiB** → 8 GB 足够，无需额外降级 |
+| **训练方式审计** | ✅ | 实测可训 **99,880,992 / 450,046,176（22.19%）**；**整个 VLM 主干（含视觉编码器）冻结**，只训 `lm_expert` + `state_proj` + `action_*` 投影层；`use_peft=False`。即官方默认的**部分微调**，**不是全参数微调**（见 [`smolvla_audit.md`](smolvla_audit.md)） |
 | 3 相机数据（v1） | ✅ | `scripts/replay_3cam.py`（monkeypatch `_default_sensor_configs` 这个 **property**）→ `Replayed 100 episodes, 100/100`，502 MB |
 | **3 相机数据（v2）** | ✅ | `Replayed 1000 episodes, 1000/1000=100.00%`，**5.05 GB**（1 相机 1000 条版备份为 `.1cam.`，3 相机 100 条版备份为 `.3cam100.`） |
 | DatasetPipe | ✅ | `state_dim=29` / `action_dim=8` / `fps=20`；v1 100 eps → 166 MB；**v2 500 eps → 11 GB（图片模式）** |
@@ -61,6 +62,110 @@ cd /d E:\EmbodiedAI
 
 :: 4) 评测：见 project-b-vla/README.md 第 4 步
 ```
+
+## 本轮新增：诊断实验与语言条件任务
+
+> 全部为实测。新增实验一律使用**新的 exp_id**，未覆盖任何历史 JSONL / checkpoint。
+
+### 1. 训练配置审计（更正一处不准确表述）
+
+| 项 | 实测 |
+|---|---|
+| 总参数 / 可训练 | **450,046,176 / 99,880,992（22.19%）** |
+| 冻结 | **整个 `model.vlm_with_expert.vlm`（含视觉编码器）** |
+| 可训练 | `lm_expert`(98.2M) + `state_proj` + `action_in/out_proj` + `action_time_mlp_in/out` |
+| `use_peft` | `false`（确实**没用** LoRA） |
+
+**此前"无需 LoRA/冻结降级""未启用任何冻结阶梯"的表述不准确** → 已更正为
+"采用 SmolVLA 官方默认的部分微调"。审计脚本 `scripts/audit_smolvla_config.py`，
+结果见 [`smolvla_audit.md`](smolvla_audit.md)。
+（附带排除一个假 bug：`config` 里 `observation.state shape=[6]` 是陈旧元数据，
+`modeling_smolvla.py:409` 的 `pad_vector` 只 pad 到 32、不截断，训练推理同函数，无害。）
+
+### 2. 延迟重新拆分（推翻旧结论）
+
+| 项 | 实测（n） |
+|---|---|
+| **真正 VLA forward**（queue 空，含 10 步去噪） | **≈ 433 ms**（p50 393 / p95 620，n=12） |
+| 纯 action queue 出队 | ≈ 2.42 ms（n=588） |
+| 闭环平均 step latency | ≈ 25.5 ms（≈39 Hz） |
+| forward 触发频率 | **每 50 步 1 次** |
+
+旧报告"策略延迟 mean 6.7 ms ≈ 149 Hz"实为 **`policy call` 的 p50（6.54 ms）**，
+落在**出队步**上 —— 中位数把每 50 步一次、**0.38–0.86 s** 的 forward 尖峰完全掩盖。
+脚本 `scripts/measure_latency.py`，明细见 [`latency_report.md`](latency_report.md)。
+
+### 3. `n_action_steps` 控制变量实验（排除"开环执行过长"）
+
+同一 checkpoint、同一 seeds，**只改** `policy.config.n_action_steps`（`chunk_size` 不变）：
+
+| n_action_steps | 成功/总数 | 95% CI 上限 | 平均单集耗时 |
+|---|---|---|---|
+| **1**（每步重规划） | **0/30** | 0.114 | **77.83 s** |
+| 5 | 0/15 | 0.204 | 17.05 s |
+| 10 | 0/15 | 0.204 | 9.76 s |
+| 25 | 0/20 | 0.161 | 4.97 s |
+| **50**（原配置） | **0/30** | 0.114 | **3.59 s** |
+
+**五个配置全部 0 成功（110 episodes）** → 「开环执行过长」**已排除**；
+且 `n=1` 慢 **21.7 倍**却毫无收益。脚本 `scripts/replan_experiment.py`，
+新 exp_id：`experiments/B_replan_n{1,5,10,25,50}/`。
+
+### 4. 语言条件性最小任务（`PickDualCube-v1`）
+
+**为什么不能用"两个 goal 位置"**（原计划，实测后推翻）：
+
+1. `goal_site` 在 `_hidden_objects` 里，ManiSkill 取观测前调 `hide_visual()`
+   （`sapien_env.py:601`）→ **goal 在相机中不可见**（实测相距 0.3 m 的两个 goal 三个相机均 **0 像素差异**）；
+2. 即便可见，`goal_pos` 也在 `obs.extra` 里 → 模型**看 state 就能做对，无需读指令**。
+
+**因此改用"两个候选物体"**：两个同形状不同颜色方块，指令指定抓哪一个，
+`obs.extra` **不含**"哪个是目标"。**零额外示教成本**的技巧：
+**不改颜色，只交换两个方块的初始位置** —— 现有示教轨迹（抓槽位 A）在两种布局下都成立。
+
+| 变体 | 红块 | 蓝块 | 指令 |
+|---|---|---|---|
+| `red`  | 槽位 A | 槽位 B | `pick up the red cube ...` |
+| `blue` | 槽位 B | 槽位 A | `pick up the blue cube ...` |
+
+**2×2 析因结果**（同 seeds、同 checkpoint）：
+
+| 场景 | 指令 | 正确? | 成功率 |
+|---|---|---|---|
+| red | red | ✅ | 1/30 = 0.0333 |
+| red | blue | ❌ | 1/30 = 0.0333 |
+| blue | blue | ✅ | 1/30 = 0.0333 |
+| blue | red | ❌ | 1/30 = 0.0333 |
+
+**正确 − 错误 = 0.0000** → 但这是**地板效应**（四格基线都只有 0.03），
+**无法区分"忽略语言"与"任务还没学会"**。
+准确表述：**在本模型当前能力水平下无法检测语言条件性**，
+本实验的价值在**判据干净的实验设计**，不在结论。见 `reports/B.md` §7。
+
+**顺带修掉的 4 个真实 bug**（复现者必看）：
+
+| # | 现象 | 根因 |
+|---|---|---|
+| 1 | `TypeError: unexpected keyword 'target_color'` | replay 用 `env_info["env_id"]`（`replay_trajectory.py:485`），**不是** `env_class` |
+| 2 | `max_episode_steps` 截断示教 | 必须设 150（示教平均 77 步）—— 与项目 A 同一个坑 |
+| 3 | 环境"未注册" | 需 `import embodied_core.envs.dual_cube` 触发 `@register_env` |
+| 4 | `KeyError: 'cube_b'` | `env_states` **存在 h5 里、不在 json 里**，且 replay 会递归覆盖 → 必须在 **h5 层**注入 `cube_b` |
+
+另：同进程内第二次 `runpy` 会 `context has already been set`（需分进程）；
+连续跑多配置会触发 **TDR**。
+
+### 5. 本轮新增脚本
+
+| 脚本 | 用途 |
+|---|---|
+| `scripts/audit_smolvla_config.py` | 实测 checkpoint 的参数量与冻结范围 |
+| `scripts/measure_latency.py` | 拆分 forward / 出队 / 环境 / 闭环延迟 |
+| `scripts/replan_experiment.py` | `n_action_steps` 控制变量实验 |
+| `scripts/check_goal_visibility.py` | 验证 goal 位置是否可从相机分辨（得出"不可见"结论） |
+| `embodied_core/envs/dual_cube.py` | `PickDualCube-v1` 任务实现 |
+| `scripts/replay_dual_cube.py` | 双色 replay（在 h5 层注入 `cube_b`） |
+| `scripts/make_dual_dataset.py` | 合并 red/blue 为一个交替数据集 |
+| `scripts/langcond_eval.py` | 语言条件性 2×2 析因评测 |
 
 ## 下一步（若要继续提升）
 

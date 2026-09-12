@@ -5,6 +5,9 @@
 
 > **诚实性约定**：所有指标均来自本仓库可复现的实验，原始记录在 `experiments/`；
 > 一律表述为「仿真环境验证」，**未做真机（Sim2Real）迁移**。
+>
+> **可核对性**：每个对外汇报的数字，都能用**独立代码**从逐 episode 记录复算出来
+> （见下方「如何验证这些结论」）。
 
 ## 当前状态
 
@@ -28,9 +31,12 @@
 
 - **数据管道**：`DatasetPipe` 把 ManiSkill `.h5` 转成 LeRobotDataset（3 相机 256×256 + 29 维 state + 8 维 action + **语言指令**）
 - **关键工程**：3 相机视角配置集中一处（`envs/cameras.py`），保证**训练与评测观测一致**
-- **微调**：SmolVLA 450M（`lerobot`），显存 **3.57 GB**，无需 LoRA/冻结降级；100→500 episodes、5000→20000 steps
+- **微调**：SmolVLA 450M（`lerobot`），显存 **3.57 GB**；官方默认的**部分微调**（实测可训 **99.88M / 450.05M**，**视觉编码器全程冻结**，见 `docs/smolvla_audit.md`）
+- **延迟拆分**：真正 VLA forward **≈433 ms**（原来的"6.7 ms"其实是出队步的 p50）；闭环平均 25.5 ms，但**每 50 步含一次 ≈0.43 s 的尖峰**（见 `docs/latency_report.md`）
+- **控制变量实验**：`n_action_steps` ∈ {1,5,10,25,50} **全部 0 成功**（110 episodes）→ **排除**"开环执行过长"这一归因
+- **语言条件性**：新建 `PickDualCube-v1`（两个候选物体，**指令不可被 state 替代**）+ **2×2 析因评测** → 四格同分（**地板效应，无法检测**，如实记录）
 - **评测**：与项目 A 同口径；**指令泛化四档**（模板/同义/组合/干扰）、场景泛化
-- **效率**：策略延迟 **mean 6.7 ms / p95 7.3 ms（≈149 Hz）** → action chunk 生效时 **VLA 推理不是瓶颈**
+- **效率**：闭环平均 step latency **mean 6.7 ms / p95 7.3 ms**（含 action queue 出队，**不等于** VLA forward 延迟，见 `docs/latency_report.md`）；action chunk 生效时 **VLA 推理不是瓶颈**
 - **Demo**：`scripts/demo_gradio.py`（自然语言输入 + 三视角画面 + 状态面板，`smolvla`/`act` 双策略切换）
 
 📄 报告 → [`reports/A_mvp.md`](reports/A_mvp.md)｜[`reports/B.md`](reports/B.md)
@@ -86,13 +92,36 @@ embodied_core/          两个项目共享的基础设施（唯一允许共享�
   metrics/recorder.py   实验记录与统计（纯标准库，可离线复核）
   metrics/failure_modes.py 失败模式细粒度归因（slip / not_reached / collision / no_contact）
 configs/                实验配置
-docs/                   env_decision.md · vram_report.md · s2_smolvla_smoke.md · phase3_progress.md · data_card_*.md
+docs/                   env_decision.md · vram_report.md · s2_smolvla_smoke.md · phase3_progress.md · testing.md · data_card_*.md
 experiments/            实验产物（JSONL / MP4 / summary.json）——不入库
 reports/                A_mvp.md · B.md
 scripts/                环境与数据脚本、训练包装、动作探针、Gradio Demo
+tests/                  pytest：独立复算 + 单元测试 + 端到端（见 docs/testing.md）
 project-a-il/           项目 A 说明与复现
 project-b-vla/          项目 B 说明与复现
 ```
+
+## 如何验证这些结论
+
+> 完整的验证设计见 [`docs/testing.md`](docs/testing.md)。核心思路：
+> **每个对外汇报的数字，都能用独立代码从原始记录复算出来。**
+
+```cmd
+cd /d E:\EmbodiedAI
+
+:: 1) 独立复算 22 个实验（刻意不 import 评测器，另写一套实现交叉验证）
+.venv\Scripts\python.exe tests\test_recorded_experiments.py
+
+:: 2) 全部单元测试（Wilson 边界 / seed 确定性 / state 展平 / 失败模式分支）
+.venv\Scripts\python.exe -m pytest -q
+
+:: 3) 端到端真跑一遍（需要仿真器，约 10 秒；默认跳过）
+.venv\Scripts\python.exe -m pytest -m slow --runslow tests/test_end_to_end_slow.py -v
+```
+
+**第 1 步最关键**：它用**另一套独立实现**重算成功率、标准误、置信区间与失败模式分布，
+再与 `summary.json` 逐字段比对。两者一致 → 数字可被外部复核；
+不一致 → 会直接打印差异。
 
 ## 环境（已实测）
 

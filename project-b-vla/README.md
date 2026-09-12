@@ -9,15 +9,30 @@
 
 | 指标 | 值 |
 |---|---|
-| **MVP 成功率** | **1/30 = 0.0333**（±0.0328，Wilson 95% CI [0.006, 0.167]） |
+| **MVP 成功率（v2：500 eps / 20000 steps）** | **1/60 = 0.0167**（±0.0165，Wilson 95% CI [0.003, 0.089]） |
+| MVP 成功率（v1：100 eps / 5000 steps） | 1/30 = 0.0333 |
+| **真正 VLA forward 延迟** | **≈ 433 ms**（p50 393 / p95 620，n=12）—— 含 10 步 flow-matching 去噪 |
+| 纯 action queue 出队 | ≈ 2.42 ms |
+| **闭环平均 step latency** | **≈ 25.5 ms（≈39 Hz）**；**每 50 步含一次 ≈0.43 s 的 forward 尖峰**（详见 [`docs/latency_report.md`](../docs/latency_report.md)） |
+| `n_action_steps` 控制变量（1/5/10/25/50） | **全部 0 成功**（110 episodes）→ "开环执行过长" **已排除**（`reports/B.md` §5.2） |
+| **语言条件性 2×2 析因** | 四格均为 **1/30 = 0.0333**（正确 vs 错误指令差 **0.0000**）→ **地板效应，无法检测**（`reports/B.md` §7） |
 | 指令泛化四档（模板/同义/组合/干扰） | 0/12、0/9、0/6、0/6 → **0.0000** |
 | 场景泛化 baseline | 0/5 → 0.0000 |
-| **策略推理延迟** | **mean 6.7 ms / p50 6.7 / p95 7.3**（≈149 Hz） |
-| 训练显存 | **3.57 GB**（batch 8，无 LoRA/冻结降级） |
+| 训练显存 | **3.57 GB**（batch 8） |
+| **训练方式** | **部分微调**：SmolVLA 官方默认的 `freeze_vision_encoder=true` + `train_expert_only=true`，实测可训 **99.88M / 450.05M（22.19%）**，整个 VLM 主干（含视觉编码器）**冻结**；未额外启用 LoRA（详见 [`docs/smolvla_audit.md`](../docs/smolvla_audit.md)） |
 
-**核心诚实结论**：SmolVLA（**100 episodes + 5000 steps**）远低于项目 A 的任务专用 ACT（**0.3933**）。
-归因见 `reports/B.md` §5：瓶颈是**训练规模与数据量**（5000 steps ≈ 1 epoch、7400 帧），
-而非模型能力——社区同类 VLA 微调通常用 10 万级帧。
+**核心诚实结论**：SmolVLA 远低于项目 A 的任务专用 ACT（**0.3933**）。
+
+归因见 `reports/B.md` §5 / §5.1 / §5.2，**已用控制变量实验排除**：
+
+- ✅ 训练步数不足（5000 → 20000 无改善）
+- ✅ 数据量不足（100 → 500 episodes 无改善）
+- ✅ 显存降级（batch 8 峰值 3.57 GB，未额外降级）
+- ✅ **开环执行过长**（`n_action_steps` 1→50 全部 0 成功，110 episodes）
+
+**剩余解释（⚠️ 属假设，未经对照实验证明）**：
+**「预训练分布不匹配」+「视觉编码器全程冻结」** ——
+后者是前者的具体机制（模型没有机制适配自定义相机），但**尚需"解冻视觉编码器后重训"的对照实验**才能确立。
 
 ## 已完成 ✅
 
@@ -25,7 +40,7 @@
 |---|---|
 | 依赖 | `lerobot 0.6.1` + `[smolvla]` + `[dataset]`；**torch 未被改动**（仍 `2.9.1+cu128`） |
 | 权重 | `lerobot/smolvla_base`（走 `hf-mirror.com`） |
-| **S2 显存验证** | 450M 参数、加载 883 MiB、batch=8 训练峰值 **3654 MiB** → 8 GB 够用，**降级阶梯不启用**（[`docs/s2_smolvla_smoke.md`](../docs/s2_smolvla_smoke.md)） |
+| **S2 显存验证** | 450M 参数、加载 883 MiB、batch=8 训练峰值 **3654 MiB** → 8 GB 够用，**无需额外降级**（[`docs/s2_smolvla_smoke.md`](../docs/s2_smolvla_smoke.md)）；实际训练采用的是官方默认的「冻结 VLM + 只训 expert」部分微调（[`docs/smolvla_audit.md`](../docs/smolvla_audit.md)） |
 | **3 相机数据** | `scripts/replay_3cam.py`（monkeypatch `_default_sensor_configs` 这个 **property**）→ **100/100** episodes，502 MB |
 | **DatasetPipe** | `embodied_core/data/pipeline.py`：`.h5` → LeRobotDataset（3 相机 + 29 维 state + 8 维 action + **task 指令**） |
 | 微调 | `scripts/train_smolvla_windows.py`（绕过 Windows symlink 权限问题）→ 5000 steps |

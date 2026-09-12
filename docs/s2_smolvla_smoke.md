@@ -11,7 +11,7 @@
 
 | 项 | 值 |
 |---|---|
-| 参数量 | **450.0 M**（其中**可训练 99.9 M**，默认已冻结一部分） |
+| 参数量 | **450.0 M**（其中**可训练 99.88 M = 22.19%**；即官方默认的"冻结 VLM + 只训 action expert"，实测明细见 [`smolvla_audit.md`](smolvla_audit.md)） |
 | `n_obs_steps` / `chunk_size` / `n_action_steps` | 1 / 50 / 50 |
 | `max_state_dim` / `max_action_dim` | 32 / 32 |
 | 图像输入 | **3 个相机**，各 `(3, 256, 256)` |
@@ -36,7 +36,10 @@
 
 - batch=8 峰值 3654 MiB → 剩余约 **4.5 GB** 余量
 - 训练吞吐 0.33–0.58 s/step（batch 8）→ 10000 steps 约 1–1.6 小时
-- 计划中的降级阶梯（LoRA → 只训 action expert → NF4/QLoRA → 云 GPU）**暂不启用**，保留为扩容或换任务时的备选
+- 计划中的降级阶梯（LoRA → NF4/QLoRA → 云 GPU）**暂不启用**，保留为扩容或换任务时的备选
+- ⚠️ **一处需要澄清的表述**：本项目实际训练时，"冻结视觉编码器 + 只训 action expert" 是 **SmolVLA 的官方默认配置**（`freeze_vision_encoder=true` / `train_expert_only=true`），
+  **不是我们额外加的降级手段**。因此不要说成"未启用冻结"——准确说法是"采用官方默认的部分微调"。
+  实测参数量明细见 [`smolvla_audit.md`](smolvla_audit.md)
 
 ## 4. 说明与局限
 

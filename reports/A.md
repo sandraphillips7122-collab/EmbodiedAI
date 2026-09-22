@@ -18,6 +18,7 @@
 | 示教 | 官方 `motionplanning` 1000 条 → 全量 RGB replay 成功（418 MB）；主实验用**前 100 条**（约 7700 个训练样本） |
 | 模型 | ACT：resnet18 backbone + DETRVAE（hidden 256，2 enc + 4 dec，`num_queries=30`），不含 depth |
 | 训练 | batch 32，lr 1e-4，**30000 iters**，EMA；loss 98.9 → 0.0090 |
+| 资源占用（实测） | 训练峰值显存 **3310 MiB**（含 Windows 桌面基线约 1.8 GB），约 **0.12 s/iter**（30000 iters ≈ 1 小时）；详见 [`docs/vram_report.md`](../docs/vram_report.md) |
 | 评测 | **3 个 seed 块 × 50 episodes = 150 次 rollout**，每 episode 上限 150 步，`ignore_terminations=True` |
 
 ## 2. 主结果（PickCube）

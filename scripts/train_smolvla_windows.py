@@ -16,10 +16,10 @@
 用法::
 
     .venv\\Scripts\\python.exe scripts\\train_smolvla_windows.py ^
-        --policy.path="C:/Users/29446/.cache/huggingface/hub/models--lerobot--smolvla_base/snapshots/<hash>" ^
+        --policy.path="C:/Users/<user>/.cache/huggingface/hub/models--lerobot--smolvla_base/snapshots/<hash>" ^
         --policy.push_to_hub=false ^
         --dataset.repo_id=local/pickcube_3cam_100 ^
-        --dataset.root="C:/Users/29446/.cache/huggingface/lerobot/local/pickcube_3cam_100" ^
+        --dataset.root="C:/Users/<user>/.cache/huggingface/lerobot/local/pickcube_3cam_100" ^
         --batch_size=8 --steps=10000 --save_freq=2000 --log_freq=50 ^
         --num_workers=0 --wandb.enable=false ^
         --output_dir="E:/EmbodiedAI/experiments/B_smolvla_finetune"

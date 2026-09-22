@@ -127,6 +127,10 @@ cd /d E:\EmbodiedAI
 - **执行侧：Windows 原生**（WSL 无 Vulkan 渲染设备，不可用）
 - Python 3.12.7 venv；`torch 2.9.1+cu128`；`mani_skill 3.0.1` + `sapien 3.0.3`；`lerobot 0.6.1`；`peft 0.20.0`
 - 依赖源：清华 PyPI（纯 Python 包）／阿里云 `pytorch-wheels`（CUDA torch）／`gh-proxy.com`（GitHub 源码）／`hf-mirror.com`（模型与数据）
+- **依赖清单**：[`requirements.txt`](requirements.txt)（由 `pip freeze` 从实际运行环境提取）。
+  ⚠️ 注意其中的 `torch==2.9.1+cu128` **不能**用普通 PyPI 源安装 ——
+  清华源上的 `torch` 是 **CPU-only**（`cuda_available=False`），必须走
+  `--index-url https://mirrors.aliyun.com/pytorch-wheels/cu128`；文件头部有完整说明。
 
 ## 数据与算力预算（实测）
 

@@ -1,0 +1,69 @@
+# EmbodiedAI —— 依赖参考清单（v1.0）
+#
+# 说明
+# ----
+# 本文件由 `pip freeze` 从实际运行环境的 .venv 提取，**版本为实测可用组合**。
+# 它只是**参考清单**：`pyproject.toml` 刻意不声明 dependencies，
+# 是为了避免 `pip install -e .` 从错误的源拉取 CUDA 版 torch 等重依赖。
+#
+# ⚠️ Windows / 中国大陆网络的两个关键点（详见 docs/env_decision.md）
+# --------------------------------------------------------------
+# 1) CUDA 版 torch 必须用带 `+cuXXX` 的 wheel。
+#    清华 PyPI 镜像上的 `torch` 是 **CPU-only**（124 MB，cuda_available=False），
+#    必须从阿里云 pytorch-wheels 镜像取（约 2.5 GB）：
+#       pip install torch==2.9.1+cu128 torchvision==0.24.1+cu128 \
+#           --index-url https://mirrors.aliyun.com/pytorch-wheels/cu128
+#    因此下面这两行**不能**直接用普通 PyPI 源安装。
+# 2) 其余纯 Python 包用清华源即可：
+#       pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+#
+# 已知无害的项
+# -----------
+# - `torchcodec` 在本机 DLL 加载失败，lerobot 会自动回退到 `pyav`（功能等价）。
+# - `opencv-python` 与 `opencv-python-headless` 同时存在（分别是 mani_skill 与
+#   lerobot 的传递依赖）；本项目未依赖此冲突，实际运行正常。
+
+# ---- 核心：CUDA 版 torch（必须用 +cu128 wheel，见上方说明）----
+torch==2.9.1+cu128
+torchvision==0.24.1+cu128
+
+# ---- 核心：数值 / 数据 I/O ----
+numpy==2.2.6
+scipy==1.18.1
+h5py==3.16.0
+gymnasium==1.3.0
+tqdm==4.70.0
+
+# ---- 图像 / 视频 ----
+Pillow==12.3.0
+opencv-python==5.0.0.93
+ImageIO==2.37.4
+imageio-ffmpeg==0.6.0
+av==15.1.0
+
+# ---- 仿真（项目 A / B 共用）----
+mani_skill==3.0.1
+sapien==3.0.3
+
+# ---- 项目 A：ACT 模仿学习 ----
+diffusers==0.40.0
+einops==0.8.2
+wandb==0.30.0
+
+# ---- 项目 B：SmolVLA / LeRobot ----
+lerobot==0.6.1
+transformers==5.5.4
+accelerate==1.15.0
+datasets==4.8.5
+safetensors==0.8.0
+peft==0.20.0
+draccus==0.11.6
+tyro==1.0.16
+num2words==0.5.14
+torchcodec==0.11.1
+
+# ---- Demo（Gradio 交互界面）----
+gradio==6.27.0
+
+# ---- 测试 ----
+pytest==9.1.1

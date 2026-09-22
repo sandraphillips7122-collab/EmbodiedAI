@@ -6,7 +6,7 @@
 用法::
 
     .venv\\Scripts\\python.exe scripts\\inspect_demos.py \\
-        --h5 "C:\\Users\\29446\\.maniskill\\demos\\PickCube-v1\\motionplanning\\trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5" \\
+        --h5 "C:\\Users\\<user>\\.maniskill\\demos\\PickCube-v1\\motionplanning\\trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5" \\
         --out docs/data_card_pickcube_rgb.md
 """
 

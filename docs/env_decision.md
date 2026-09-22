@@ -13,7 +13,7 @@
 | WSL 发行版 | Ubuntu 24.04.4 LTS，kernel 6.6.87.2-microsoft-standard-WSL2，systemd=true | `uname -a` |
 | WSL interop | 可用（可从 WSL 调 Windows 可执行文件） | `cmd.exe /c echo INTEROP_OK` → `INTEROP_OK` |
 | WSL 的 Python | `/usr/bin/python3` = 3.12.3，但 **`python3 -m venv` 失败**（缺 `python3.12-venv`，需 sudo 密码） | `ensurepip is not available` |
-| Windows 的 Python | `D:\python\python.exe` = 3.13.2；`C:\Users\29446\anaconda3\python.exe` = 3.12.7 | `python.exe --version` |
+| Windows 的 Python | `D:\python\python.exe` = 3.13.2；`C:\Users\<user>\anaconda3\python.exe` = 3.12.7 | `python.exe --version` |
 | 磁盘余量 | C: 96 GiB 可用；E: 108 GiB 可用 | `df -h` |
 | sudo | 需要密码（无法自动安装 WSL 系统包） | `sudo -n true` |
 

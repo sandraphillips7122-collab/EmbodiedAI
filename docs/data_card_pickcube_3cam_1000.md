@@ -1,6 +1,6 @@
 # 数据卡（ManiSkill 示教）
 
-- 数据文件：`C:\Users\29446\.maniskill\demos\PickCube-v1\motionplanning\trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5`
+- 数据文件：`C:\Users\<user>\.maniskill\demos\PickCube-v1\motionplanning\trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5`
 - 轨迹总数：**1000**（本卡片统计前 100 条）
 - episode 长度：min=49 / median=79 / mean=77.3 / max=100
 - 抽样成功率：1.0

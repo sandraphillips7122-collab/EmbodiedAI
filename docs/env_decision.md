@@ -33,7 +33,7 @@
 
 ## 4. 决策
 
-**执行侧：Windows 原生。**（Python 环境 `E:\EmbodiedAI\.venv`，Python 3.12.7，由 conda base 的 python 创建、与 anaconda 完全隔离：`include-system-site-packages = false`。）
+**执行侧：Windows 原生。**（Python 环境 `.venv`，Python 3.12.7，由 conda base 的 python 创建、与 anaconda 完全隔离：`include-system-site-packages = false`。）
 
 WSL 仅作为发起命令的 shell 通道（通过 interop 调用 Windows 侧程序）。
 

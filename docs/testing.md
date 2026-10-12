@@ -36,7 +36,7 @@
 .venv\Scripts\python.exe -m pytest tests\test_recorded_experiments.py -v
 ```
 
-**当前结论（实测）**：22 个实验的**全部数字一致**，退出码 0，末尾输出
+**当前结论（实测）**：**全部 31 个实验**的**全部数字一致**（实验数会随新实验增加），退出码 0，末尾输出
 `[verify] ALL OK - every recorded number was reproduced independently`。
 
 ### 第 2 层：单元测试（逻辑正确性与防回归）

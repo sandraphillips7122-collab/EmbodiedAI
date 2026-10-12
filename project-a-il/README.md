@@ -11,7 +11,7 @@
 ## 前置：环境
 
 ```cmd
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 python -m venv .venv                      :: 或用 conda base 的 python
 .venv\Scripts\python.exe -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mani_skill
 :: CUDA 版 torch 从阿里云镜像取（清华 PyPI 的 torch 是 CPU-only！见 docs/env_decision.md §6）

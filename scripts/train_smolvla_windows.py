@@ -22,7 +22,7 @@
         --dataset.root="C:/Users/<user>/.cache/huggingface/lerobot/local/pickcube_3cam_100" ^
         --batch_size=8 --steps=10000 --save_freq=2000 --log_freq=50 ^
         --num_workers=0 --wandb.enable=false ^
-        --output_dir="E:/EmbodiedAI/experiments/B_smolvla_finetune"
+        --output_dir="experiments/B_smolvla_finetune"
 """
 
 from __future__ import annotations

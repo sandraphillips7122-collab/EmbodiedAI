@@ -56,7 +56,7 @@
 ## 5. 复现
 
 ```cmd
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 .venv\Scripts\python.exe -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple lerobot "lerobot[smolvla]"
 :: 权重（约 900 MB，走 hf-mirror）
 .venv\Scripts\python.exe -c "import os; os.environ['HF_ENDPOINT']='https://hf-mirror.com'; from huggingface_hub import snapshot_download; print(snapshot_download('lerobot/smolvla_base'))"

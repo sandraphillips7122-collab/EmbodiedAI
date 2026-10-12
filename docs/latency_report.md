@@ -87,7 +87,7 @@
 ## 5. 复现
 
 ```cmd
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 :: 默认 12 轮 forward 采样
 .venv\Scripts\python.exe scripts\measure_latency.py
 

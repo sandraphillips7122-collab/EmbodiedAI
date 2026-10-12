@@ -1,5 +1,9 @@
 # EmbodiedAI — 具身智能项目集（ManiSkill3 + LeRobot）
 
+![PickCube ACT 评测录像](docs/images/demo_pickcube.gif)
+
+> 上图为项目 A 的 ACT 策略在 `PickCube-v1` 上的评测录像（ManiSkill3 仿真）。项目 B 的 SmolVLA 执行录像见 [`docs/images/demo_smolvla.gif`](docs/images/demo_smolvla.gif)。
+
 面向 **VLA / 机器人操作算法** 与 **仿真·数据·评测** 方向的两个完整项目。
 二者共享同一套基础设施（`embodied_core/`），**用同一个评测器、同一套 seed 定义、同一统计口径**，
 因此在同一评测协议下可以做**相对对照**（口径一致，但不等于绝对可比）。
@@ -107,9 +111,9 @@ project-b-vla/          项目 B 说明与复现
 > 完整设计见 [`docs/testing.md`](docs/testing.md)。核心：**每个对外数字都能用独立代码从原始记录复算出来**。
 
 ```cmd
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 
-:: 1) 独立复算 22 个实验（刻意不 import 评测器，另写一套实现交叉验证）
+:: 1) 独立复算全部实验（刻意不 import 评测器，另写一套实现交叉验证）
 .venv\Scripts\python.exe tests\test_recorded_experiments.py
 
 :: 2) 全部单元测试（Wilson 边界 / seed 确定性 / state 展平 / 失败模式分支）

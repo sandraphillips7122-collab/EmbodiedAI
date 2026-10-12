@@ -39,3 +39,6 @@ third_party/
 
 # Reasonix 工具会话记录，不入库
 .reasonix/
+
+# 本机 AI 工具配置（含本机沙箱路径），不入库
+reasonix.toml

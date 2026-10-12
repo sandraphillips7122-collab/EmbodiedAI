@@ -7,7 +7,7 @@
 ### 1.1 确认敏感/体积大的内容未被跟踪
 
 ```cmd
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 :: 看受控文件里有没有不该入库的东西
 git ls-files | findstr /i "\.venv \.cache experiments third_party .pt .h5 .mp4"
 :: 应为空；若列出内容，说明 .gitignore 没覆盖到

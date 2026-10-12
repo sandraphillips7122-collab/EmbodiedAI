@@ -205,7 +205,7 @@ def prepare_state(self, batch):
 ## 5. 复现
 
 ```cmd
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 :: 默认审计两个 checkpoint（v1 与 v2）
 .venv\Scripts\python.exe scripts\audit_smolvla_config.py
 

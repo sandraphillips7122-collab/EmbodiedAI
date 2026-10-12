@@ -68,20 +68,20 @@
 ```
 
 > 该缺口**不影响任何已汇报的数字**：v2 的训练输入是下游的 LeRobotDataset（完好），
-> 而 22 个历史实验的 `episodes.jsonl` 全部保留（独立复算通过）。
+> 而全部历史实验的 `episodes.jsonl` 全部保留（独立复算通过）。
 
 ## 复现入口（v2，当前有效）
 
 ```cmd
 :: 1) 3 相机 replay 1000 条（约 1.7 小时，5.05 GB）
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 .venv\Scripts\python.exe scripts\replay_3cam.py --traj-path "%USERPROFILE%\.maniskill\demos\PickCube-v1\motionplanning\trajectory.h5" --use-first-env-state -c pd_joint_delta_pos -o rgb --save-traj -b physx_cpu --num-envs 1 --count 1000
 
 :: 2) h5 → LeRobotDataset（图片模式：约 40 分钟，500 条 → 11 GB）
 .venv\Scripts\python.exe -m embodied_core.data.pipeline --h5 "%USERPROFILE%\.maniskill\demos\PickCube-v1\motionplanning\trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5" --repo-id local/pickcube_3cam_500img --instruction "pick up the red cube and move it to the goal position" --max-episodes 500 --no-videos
 
 :: 3) SmolVLA 微调 20000 steps（约 3.5 小时；num_workers 必须 > 0）
-.venv\Scripts\python.exe scripts\train_smolvla_windows.py --policy.path="<snapshot 绝对路径>" --policy.push_to_hub=false --dataset.repo_id=local/pickcube_3cam_500img --dataset.root="C:/Users/<user>/.cache/huggingface/lerobot/local/pickcube_3cam_500img" --batch_size=8 --steps=20000 --save_freq=2500 --log_freq=200 --num_workers=8 --wandb.enable=false --output_dir="E:/EmbodiedAI/experiments/B_smolvla_finetune_v2"
+.venv\Scripts\python.exe scripts\train_smolvla_windows.py --policy.path="<snapshot 绝对路径>" --policy.push_to_hub=false --dataset.repo_id=local/pickcube_3cam_500img --dataset.root="C:/Users/<user>/.cache/huggingface/lerobot/local/pickcube_3cam_500img" --batch_size=8 --steps=20000 --save_freq=2500 --log_freq=200 --num_workers=8 --wandb.enable=false --output_dir="experiments/B_smolvla_finetune_v2"
 
 :: 4) 评测：见 project-b-vla/README.md 第 4 步
 ```

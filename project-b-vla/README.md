@@ -62,7 +62,7 @@
 ## 一键复现
 
 ```cmd
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 
 :: 1) 3 相机 replay（默认 100 条；要 1000 条加 --count 1000）
 .venv\Scripts\python.exe scripts\replay_3cam.py --traj-path "%USERPROFILE%\.maniskill\demos\PickCube-v1\motionplanning\trajectory.h5" --use-first-env-state -c pd_joint_delta_pos -o rgb --save-traj -b physx_cpu --num-envs 1 --count 100
@@ -71,10 +71,10 @@ cd /d E:\EmbodiedAI
 .venv\Scripts\python.exe -m embodied_core.data.pipeline --h5 "%USERPROFILE%\.maniskill\demos\PickCube-v1\motionplanning\trajectory.rgb.pd_joint_delta_pos.physx_cpu.h5" --repo-id local/pickcube_3cam_100
 
 :: 3) 微调（注意：--policy.path 用本地快照绝对路径，避免 interop 把 / 改成 \）
-.venv\Scripts\python.exe scripts\train_smolvla_windows.py --policy.path="C:/Users/<user>/.cache/huggingface/hub/models--lerobot--smolvla_base/snapshots/<hash>" --policy.push_to_hub=false --dataset.repo_id=local/pickcube_3cam_100 --dataset.root="C:/Users/<user>/.cache/huggingface/lerobot/local/pickcube_3cam_100" --batch_size=8 --steps=5000 --save_freq=1000 --log_freq=100 --num_workers=0 --wandb.enable=false --output_dir="E:/EmbodiedAI/experiments/B_smolvla_finetune"
+.venv\Scripts\python.exe scripts\train_smolvla_windows.py --policy.path="C:/Users/<user>/.cache/huggingface/hub/models--lerobot--smolvla_base/snapshots/<hash>" --policy.push_to_hub=false --dataset.repo_id=local/pickcube_3cam_100 --dataset.root="C:/Users/<user>/.cache/huggingface/lerobot/local/pickcube_3cam_100" --batch_size=8 --steps=5000 --save_freq=1000 --log_freq=100 --num_workers=0 --wandb.enable=false --output_dir="experiments/B_smolvla_finetune"
 
 :: 4) 评测（3 seed 块 × 10 + MP4；注意 cameras='three' 与 TDR 保护）
-.venv\Scripts\python.exe -c "from embodied_core.envs.adapter import EnvSpec; from embodied_core.rollout.runner import RolloutConfig, run_rollout; from embodied_core.rollout.smolvla_policy import SmolVLAPolicyAdapter as A; p=A('E:/EmbodiedAI/experiments/B_smolvla_finetune/checkpoints/005000/pretrained_model', instruction='pick up the red cube and move it to the goal position', device='cuda'); cfg=RolloutConfig(exp_id='B_mvp_smolvla', env=EnvSpec(max_episode_steps=150), seeds=(0,1,2), episodes_per_seed=10, max_episode_steps=150, policy_name='smolvla', cameras='three', sync_and_free=True, rebuild_env_every=3, record_video=True, num_videos=3); print(run_rollout(cfg, policy=p))"
+.venv\Scripts\python.exe -c "from embodied_core.envs.adapter import EnvSpec; from embodied_core.rollout.runner import RolloutConfig, run_rollout; from embodied_core.rollout.smolvla_policy import SmolVLAPolicyAdapter as A; p=A('experiments/B_smolvla_finetune/checkpoints/005000/pretrained_model', instruction='pick up the red cube and move it to the goal position', device='cuda'); cfg=RolloutConfig(exp_id='B_mvp_smolvla', env=EnvSpec(max_episode_steps=150), seeds=(0,1,2), episodes_per_seed=10, max_episode_steps=150, policy_name='smolvla', cameras='three', sync_and_free=True, rebuild_env_every=3, record_video=True, num_videos=3); print(run_rollout(cfg, policy=p))"
 
 :: 5) 交互 Demo（占用终端，Ctrl+C 退出）
 .venv\Scripts\python.exe scripts\demo_gradio.py --policy smolvla

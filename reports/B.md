@@ -382,7 +382,7 @@ Training:   1%|          | 3/400 [10:34<24:51:20, 225.39s/step]
 ## 8. 可交互 Demo
 
 ```cmd
-cd /d E:\EmbodiedAI
+cd /d <你的仓库根目录>
 :: SmolVLA（语言条件 VLA）
 .venv\Scripts\python.exe scripts\demo_gradio.py --policy smolvla
 :: ACT 对照（成功率更高，便于观察成功行为）
